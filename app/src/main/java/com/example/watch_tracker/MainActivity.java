@@ -48,7 +48,7 @@ public class MainActivity extends Activity implements SensorEventListener{
                 // Code here executes on main thread after user presses button
                 angle[0] = 0;
                 angle[1] = 0;
-                angle[2] = 0;
+                angle[2] = 1;
                 angle_X.setText(String.format("%.1f", (float) Math.toDegrees(angle[0])));
                 angle_Y.setText(String.format("%.1f", (float) Math.toDegrees(angle[1])));
                 angle_Z.setText(String.format("%.1f", (float) Math.toDegrees(angle[2])));
