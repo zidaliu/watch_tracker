@@ -1,8 +1,12 @@
 package com.example.watch_tracker;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.hardware.SensorManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.TextView;
 import android.content.Context;
 import android.hardware.Sensor;
@@ -11,10 +15,19 @@ import android.hardware.SensorEventListener;
 import android.view.View;
 import android.widget.Button;
 
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import com.example.watch_tracker.databinding.ActivityMainBinding;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 
 public class MainActivity extends Activity implements SensorEventListener{
 
+    private static final int REQUEST_CODE = 1024;
     private TextView mTextView;
     private ActivityMainBinding binding;
     private SensorManager sensorManager;
@@ -25,12 +38,13 @@ public class MainActivity extends Activity implements SensorEventListener{
     private TextView angle_X;
     private TextView angle_Y;
     private TextView angle_Z;
+    private OutputStreamWriter dataWriter;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        requestPermission();
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
@@ -63,8 +77,46 @@ public class MainActivity extends Activity implements SensorEventListener{
                 angle_X.setText(String.format("%.1f", (float) Math.toDegrees(angle[0])));
                 angle_Y.setText(String.format("%.1f", (float) Math.toDegrees(angle[1])));
                 angle_Z.setText(String.format("%.1f", (float) Math.toDegrees(angle[2])));
+                if (dataWriter!=null){
+                    try{
+                        dataWriter.flush();
+                        dataWriter.close();
+                    }catch (IOException e){
+                        e.printStackTrace();
+                    }
+                }
             }
         });
+    }
+
+    private void requestPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // 先判断有没有权限
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                writeFile();
+            } else {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE);
+            }
+        } else {
+            writeFile();
+        }
+    }
+
+    private void writeFile() {
+        Log.v("Pl", "successful!");
+    }
+
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CODE) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                writeFile();
+            } else {
+                Log.v("Pl", "fail");
+            }
+        }
     }
 
     public void onSensorChanged(SensorEvent event)
@@ -78,6 +130,11 @@ public class MainActivity extends Activity implements SensorEventListener{
             angle[2] += event.values[2] * dT;
         }
         timestamp = event.timestamp;
+        try{
+            dataWriter.write(String.valueOf(angle[0])+' '+String.valueOf(angle[1])+' '+String.valueOf(angle[2])+' '+String.valueOf(timestamp)+'\n');
+        } catch (IOException e){
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -98,7 +155,19 @@ public class MainActivity extends Activity implements SensorEventListener{
         Sensor gyrpscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         if (gyrpscope != null) {
             sensorManager.registerListener((SensorEventListener) this, gyrpscope,
-                    SensorManager.SENSOR_DELAY_NORMAL, SensorManager.SENSOR_DELAY_UI);
+                    SensorManager.SENSOR_DELAY_NORMAL, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+
+//        if (myFile.exists()){
+//            myFile.delete();
+//        }
+
+
+        String prefix = "sdcard/watch_angle";
+        try {
+            dataWriter = new OutputStreamWriter(new FileOutputStream((prefix)));
+        } catch (IOException e){
+            e.printStackTrace();
         }
     }
 
@@ -106,6 +175,7 @@ public class MainActivity extends Activity implements SensorEventListener{
         super.onPause();
         // Don't receive any more updates from either sensor.
         sensorManager.unregisterListener((SensorEventListener) this);
+
     }
 
 }
